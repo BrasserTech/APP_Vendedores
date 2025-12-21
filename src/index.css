@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+/* Garante o fundo claro em toda a aplicação */
+body {
+  background-color: #f8fafc;
+  color: #1e293b;
+}

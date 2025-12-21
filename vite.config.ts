@@ -5,17 +5,19 @@ import { VitePWA } from 'vite-plugin-pwa'
 export default defineConfig({
   plugins: [
     react(),
-    VitePWA({
+    VitePWA({ 
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'App Vendas Pro',
-        short_name: 'VendasPro',
-        description: 'Aplicativo de Vendas e Ranking',
-        theme_color: '#ffffff',
+        name: 'BlueControl App',
+        short_name: 'BlueControl',
+        description: 'Gestão Financeira Simples',
+        theme_color: '#2563EB',
+        background_color: '#f8fafc',
+        display: 'standalone',
         icons: [
           {
-            src: 'pwa-192x192.png', // Você precisará criar esses ícones depois
+            src: 'pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png'
           },
