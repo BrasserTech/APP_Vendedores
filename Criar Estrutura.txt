@@ -1,0 +1,247 @@
+📘 Manual de Setup: App de Vendas (PWA)
+Tecnologias: React + TypeScript + Vite + TailwindCSS
+
+1. Criação do Projeto
+Abra o terminal (PowerShell ou CMD) na pasta onde você guarda seus projetos e rode:
+
+PowerShell
+
+# Cria o projeto com React e TypeScript
+npm create vite@latest app-vendas-pwa -- --template react-ts
+
+# Entra na pasta do projeto
+cd app-vendas-pwa
+
+# Instala as dependências básicas do React
+npm install
+2. Instalação e Configuração do Tailwind CSS
+Para que o visual (cores, espaçamentos) funcione, precisamos configurar o Tailwind.
+
+PowerShell
+
+# Instala o Tailwind e seus processadores
+npm install -D tailwindcss postcss autoprefixer
+
+# Inicializa os arquivos de configuração
+npx tailwindcss init -p
+Atenção: Agora, você precisa fazer dois ajustes manuais rápidos que não dá para fazer via linha de comando simples:
+
+A. No arquivo tailwind.config.js: Substitua o conteúdo por:
+
+JavaScript
+
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+B. No arquivo src/index.css: Apague tudo que estiver lá e cole isso no topo:
+
+CSS
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+3. Instalação das Bibliotecas do App
+Instalamos o sistema de rotas (navegação) e os ícones (Lucide).
+
+PowerShell
+
+npm install lucide-react react-router-dom
+4. Criação da Estrutura e Arquivos (Script Automatizado)
+Este é o script PowerShell que cria as pastas pages, components e gera todos os códigos das telas que definimos.
+
+Copie e cole todo o bloco abaixo no seu PowerShell (dentro da pasta do projeto):
+
+PowerShell
+
+# 1. Cria as pastas
+New-Item -ItemType Directory -Force -Path "src\components"
+New-Item -ItemType Directory -Force -Path "src\pages"
+
+# 2. Cria o Layout Base (Menu Inferior + Header)
+$layoutContent = @'
+import React from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, Users, Trophy, Package, Lightbulb, User, ChevronLeft } from 'lucide-react';
+
+const Layout = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const menuItems = [
+    { name: 'Dash', icon: LayoutDashboard, path: '/' },
+    { name: 'Clientes', icon: Users, path: '/clientes' },
+    { name: 'Ranking', icon: Trophy, path: '/ranking' },
+    { name: 'Produtos', icon: Package, path: '/produtos' },
+    { name: 'Ideias', icon: Lightbulb, path: '/ideias' },
+  ];
+
+  const getTitle = () => {
+    switch(location.pathname) {
+      case '/': return 'Dashboard';
+      case '/clientes': return 'Meus Clientes';
+      case '/ranking': return 'Ranking de Vendas';
+      case '/produtos': return 'Catálogo';
+      case '/ideias': return 'Central de Ideias';
+      default: return 'Brasser App';
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="bg-green-800 text-white p-4 flex items-center justify-between sticky top-0 z-10 shadow-md">
+        <div className="flex items-center gap-3">
+          {location.pathname !== '/' && (
+            <button onClick={() => navigate(-1)}><ChevronLeft size={24} /></button>
+          )}
+          <h1 className="text-lg font-bold">{getTitle()}</h1>
+        </div>
+        <button className="p-1 bg-green-700 rounded-full"><User size={20} /></button>
+      </header>
+      <main className="flex-1 p-4 pb-24 overflow-y-auto"><Outlet /></main>
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 h-16 pb-safe z-20">
+        <div className="flex justify-between items-center h-full px-4 max-w-md mx-auto">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path;
+            return (
+              <button key={item.name} onClick={() => navigate(item.path)} className={`flex flex-col items-center justify-center w-full space-y-1 ${isActive ? 'text-green-700' : 'text-gray-400 hover:text-green-600'}`}>
+                <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+                <span className="text-[10px] font-medium">{item.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+    </div>
+  );
+};
+export default Layout;
+'@
+Set-Content -Path "src\components\Layout.tsx" -Value $layoutContent -Encoding UTF8
+
+# 3. Cria a Página Dashboard
+$dashContent = @'
+import React from 'react';
+import { TrendingUp, DollarSign, Users } from 'lucide-react';
+const Dashboard = () => {
+  return (
+    <div className="space-y-6">
+      <div><h2 className="text-xl font-bold text-gray-800">Olá, Eduardo!</h2><p className="text-gray-500 text-sm">Resumo da Brasser Tech hoje.</p></div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100"><div className="flex items-center gap-2 text-green-700 mb-2"><DollarSign size={18} /><span className="text-xs font-bold uppercase">Vendas Hoje</span></div><p className="text-2xl font-bold text-gray-800">R$ 1.250</p><span className="text-xs text-green-600">+12% vs ontem</span></div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100"><div className="flex items-center gap-2 text-blue-600 mb-2"><Users size={18} /><span className="text-xs font-bold uppercase">Novos Clientes</span></div><p className="text-2xl font-bold text-gray-800">4</p><span className="text-xs text-gray-400">Meta: 5/dia</span></div>
+      </div>
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100"><h3 className="font-bold text-gray-700 mb-4">Desempenho Semanal</h3><div className="h-32 flex items-end justify-between gap-2 px-2">{[40, 70, 35, 90, 60, 80, 100].map((h, i) => (<div key={i} className="w-full bg-green-100 rounded-t-sm relative group"><div style={{ height: `${h}%` }} className="absolute bottom-0 w-full bg-green-600 rounded-t-sm"></div></div>))}</div><div className="flex justify-between text-xs text-gray-400 mt-2"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div></div>
+    </div>
+  );
+};
+export default Dashboard;
+'@
+Set-Content -Path "src\pages\Dashboard.tsx" -Value $dashContent -Encoding UTF8
+
+# 4. Cria a Página Clientes
+$clientesContent = @'
+import React from 'react';
+import { User, Plus, Pencil, Trash2 } from 'lucide-react';
+const Clientes = () => {
+  const clientes = [{ id: 1, nome: 'Tech Soluções Ltda', contato: 'Paulo', tipo: 'Empresa' }, { id: 2, nome: 'Academia Force', contato: 'Ana', tipo: 'Pessoa Física' }, { id: 3, nome: 'Mercado Express', contato: 'Roberto', tipo: 'Empresa' }];
+  return (
+    <div className="relative min-h-full">
+      <div className="space-y-3">{clientes.map((cliente) => (<div key={cliente.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex justify-between items-center"><div><h3 className="font-bold text-gray-800">{cliente.nome}</h3><p className="text-sm text-gray-500 flex items-center gap-1"><User size={12} /> {cliente.contato} • {cliente.tipo}</p></div><div className="flex gap-3"><button className="text-gray-400 hover:text-blue-600"><Pencil size={18} /></button><button className="text-gray-400 hover:text-red-500"><Trash2 size={18} /></button></div></div>))}</div>
+      <button className="fixed bottom-20 right-4 bg-green-800 text-white p-4 rounded-full shadow-lg hover:bg-green-700 transition-colors z-30"><Plus size={24} /></button>
+    </div>
+  );
+};
+export default Clientes;
+'@
+Set-Content -Path "src\pages\Clientes.tsx" -Value $clientesContent -Encoding UTF8
+
+# 5. Cria a Página Ranking
+$rankingContent = @'
+import React from 'react';
+import { Medal } from 'lucide-react';
+const Ranking = () => {
+  const vendedores = [{ nome: 'Eduardo (Você)', vendas: 'R$ 15.200', meta: 95 }, { nome: 'Paulo', vendas: 'R$ 12.800', meta: 80 }, { nome: 'Fernanda', vendas: 'R$ 9.400', meta: 60 }];
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-2"><span className="px-4 py-1 bg-green-800 text-white rounded-full text-sm font-medium whitespace-nowrap">Mês Atual</span><span className="px-4 py-1 bg-gray-200 text-gray-600 rounded-full text-sm font-medium whitespace-nowrap">Semana</span></div>
+      {vendedores.map((vendedor, index) => { const isTop3 = index < 3; const medalColor = index === 0 ? "text-yellow-500" : index === 1 ? "text-gray-400" : "text-orange-400"; return (<div key={index} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4"><div className={`font-bold text-xl w-8 text-center ${isTop3 ? medalColor : "text-gray-400"}`}>{index + 1}º</div><div className="flex-1"><div className="flex justify-between items-center mb-1"><span className="font-bold text-gray-800">{vendedor.nome}</span>{index === 0 && <Medal size={16} className="text-yellow-500" />}</div><div className="w-full bg-gray-100 rounded-full h-2 mb-1"><div className="bg-green-600 h-2 rounded-full" style={{ width: `${vendedor.meta}%` }}></div></div><div className="flex justify-between text-xs"><span className="text-gray-500">Vendas</span><span className="font-bold text-green-700">{vendedor.vendas}</span></div></div></div>); })}
+    </div>
+  );
+};
+export default Ranking;
+'@
+Set-Content -Path "src\pages\Ranking.tsx" -Value $rankingContent -Encoding UTF8
+
+# 6. Cria a Página Produtos
+$produtosContent = @'
+import React from "react";
+import { Search, Package } from "lucide-react";
+const Produtos = () => {
+  return (
+    <div className="space-y-4">
+      <div className="relative"><input type="text" placeholder="Buscar produtos..." className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-green-500 outline-none"/><Search className="absolute left-3 top-3 text-gray-400" size={20} /></div>
+      <div className="grid grid-cols-2 gap-3">{[1, 2, 3, 4].map((i) => (<div key={i} className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm"><div className="bg-gray-100 h-24 rounded-lg mb-2 flex items-center justify-center"><Package className="text-gray-400" /></div><h3 className="font-bold text-gray-800 text-sm">Produto {i}</h3><p className="text-green-700 font-bold text-sm mt-1">R$ 99,90</p><p className="text-xs text-gray-400">Estoque: 12</p></div>))}</div>
+    </div>
+  );
+};
+export default Produtos;
+'@
+Set-Content -Path "src\pages\Produtos.tsx" -Value $produtosContent -Encoding UTF8
+
+# 7. Cria a Página Ideias
+$ideiasContent = @'
+import React, { useState } from "react";
+import { Send, Lightbulb } from "lucide-react";
+const Ideias = () => {
+  const [tipo, setTipo] = useState("otimizacao");
+  return (
+    <div className="space-y-6">
+      <div className="bg-green-50 p-4 rounded-xl border border-green-100 flex gap-3"><Lightbulb className="text-green-700 shrink-0" /><p className="text-sm text-green-800">Sua opinião molda o futuro do sistema! Envie sugestões.</p></div>
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 space-y-4"><div><label className="block text-sm font-medium text-gray-700 mb-1">Sobre o que é a ideia?</label><div className="grid grid-cols-3 gap-2">{["otimizacao", "melhoria", "modulo"].map((t) => (<button key={t} onClick={() => setTipo(t)} className={`text-xs py-2 px-1 rounded-lg border capitalize transition-all ${tipo === t ? "bg-green-700 text-white border-green-700" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}>{t === "modulo" ? "Novo Módulo" : t}</button>))}</div></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label><textarea rows={5} className="w-full p-3 border border-gray-200 rounded-lg text-sm bg-gray-50"></textarea></div><button className="w-full bg-green-800 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-green-900 transition-colors"><Send size={18} />Enviar Sugestão</button></div>
+    </div>
+  );
+};
+export default Ideias;
+'@
+Set-Content -Path "src\pages\Ideias.tsx" -Value $ideiasContent -Encoding UTF8
+
+# 8. Configura o Arquivo de Rotas (App.tsx)
+$appContent = @'
+import React from "react";
+import { Routes, Route } from "react-router-dom";
+import Layout from "./components/Layout";
+import Dashboard from "./pages/Dashboard";
+import Clientes from "./pages/Clientes";
+import Ranking from "./pages/Ranking";
+import Produtos from "./pages/Produtos";
+import Ideias from "./pages/Ideias";
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Layout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="clientes" element={<Clientes />} />
+        <Route path="ranking" element={<Ranking />} />
+        <Route path="produtos" element={<Produtos />} />
+        <Route path="ideias" element={<Ideias />} />
+      </Route>
+    </Routes>
+  );
+}
+export default App;
+'@
+Set-Content -Path "src\App.tsx" -Value $appContent -Encoding UTF8
+5. Rodando o Projeto
+PowerShell
+
+npm run dev
