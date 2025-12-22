@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext'; // Importe o Provider
 import { Sidebar } from './components/Sidebar';
 import { BottomMenu } from './components/BottomMenu';
 import { Dashboard } from './pages/Dashboard';
@@ -6,11 +7,26 @@ import { Clients } from './pages/Clients';
 import { Ranking } from './pages/Ranking';
 import { Products } from './pages/Products';
 import { Ideas } from './pages/Ideas';
+import { Login } from './pages/Login';
+import { Register } from './pages/Register';
 
-function App() {
+// Componente interno que decide o que mostrar
+function MainApp() {
+  const { user, loading } = useAuth(); // Nossa constante global!
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [authView, setAuthView] = useState<'login' | 'register'>('login');
 
-  // Lógica para escolher qual tela mostrar
+  if (loading) {
+    return <div className="h-screen flex items-center justify-center bg-slate-50 text-blue-600 font-bold">Carregando...</div>;
+  }
+
+  // Se NÃO tem usuário, mostra Login ou Cadastro
+  if (!user) {
+    if (authView === 'login') return <Login onSwitchToRegister={() => setAuthView('register')} />;
+    return <Register onSwitchToLogin={() => setAuthView('login')} />;
+  }
+
+  // Se TEM usuário, mostra o sistema normal
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard': return <Dashboard />;
@@ -24,25 +40,27 @@ function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
-      
-      {/* MENU PC: Só aparece em telas médias ou maiores (md:block) */}
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <div className="hidden md:block">
+        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      </div>
 
-      {/* ÁREA DE CONTEÚDO PRINCIPAL */}
       <div className="flex-1 flex flex-col h-full relative w-full">
-        
-        {/* Container com scroll independente */}
         <main className="flex-1 overflow-y-auto scroll-smooth w-full">
           <div className="mx-auto max-w-5xl w-full">
              {renderContent()}
           </div>
         </main>
-
-        {/* MENU CELULAR: Só aparece em telas pequenas (md:hidden) */}
         <BottomMenu activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
     </div>
   );
 }
 
-export default App;
+// O App principal apenas fornece o contexto
+export default function App() {
+  return (
+    <AuthProvider>
+      <MainApp />
+    </AuthProvider>
+  );
+}
