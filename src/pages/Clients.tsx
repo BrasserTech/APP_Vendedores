@@ -60,8 +60,9 @@ export const Clients = () => {
   const maskPhone = (v: string) => v.replace(/\D/g, '').replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2').replace(/(-\d{4})\d+?$/, '$1');
 
   const loadData = async () => {
-    // Proteção se usuário for nulo
+    // PROTEÇÃO: Se não tiver usuário, para tudo (evita erro null)
     if (!user) return;
+    
     try {
       setLoading(true);
       // Pega cargo com segurança
@@ -129,6 +130,8 @@ export const Clients = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nome || !formData.documento || !formData.modulo) return alert("Preencha os campos obrigatórios (*)");
+    
+    // Proteção extra
     if (!user?.id) return alert("Erro de sessão.");
 
     setIsSubmitting(true);
@@ -206,7 +209,7 @@ export const Clients = () => {
         </div>
 
         <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-          {/* Uso de user?.cargo para evitar erro se for nulo */}
+          {/* Uso de user?.cargo */}
           {user?.cargo === 'Administrador' && (
             <div className="relative min-w-[200px]">
               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />

@@ -7,7 +7,7 @@ interface LoginProps {
 }
 
 export const Login = ({ onSwitchToRegister }: LoginProps) => {
-  // AQUI ESTAVA O ERRO: Mudamos de 'login' para 'signIn'
+  // CORREÇÃO CRÍTICA: Use 'signIn', não 'login'
   const { signIn } = useAuth();
   
   const [email, setEmail] = useState('');
@@ -21,7 +21,7 @@ export const Login = ({ onSwitchToRegister }: LoginProps) => {
     setLoading(true);
 
     try {
-      // Chama a função correta agora
+      // Chama a função correta
       await signIn(email, password);
     } catch (err: any) {
       console.error(err);

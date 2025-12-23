@@ -1,8 +1,7 @@
-// Adicionado 'type' antes de ReactNode para corrigir o erro de importação que apareceu no seu print
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { loginManual, registerManual } from '../services/api';
 
-// Define que o usuário TEM um cargo (opcional para evitar quebras)
+// Correção 1: Definimos que o usuário pode ter um 'cargo'
 interface User {
   id: string;
   nome: string;
@@ -39,7 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const userData = await loginManual(email, senha);
       if (userData) {
-        // Garante que o cargo seja salvo
+        // Correção 2: Garantimos que o cargo seja salvo
         const userWithRole = { ...userData, cargo: userData.cargo || 'Vendedor' };
         setUser(userWithRole);
         localStorage.setItem('@BrasserTech:user', JSON.stringify(userWithRole));

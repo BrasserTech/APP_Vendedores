@@ -129,7 +129,9 @@ export const Sales = () => {
   });
 
   const loadData = async () => {
+    // Proteção de usuário
     if (!user) return;
+    
     try {
       setLoading(true);
       // Fallback seguro se cargo não existir
