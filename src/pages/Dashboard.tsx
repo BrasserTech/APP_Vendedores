@@ -1,29 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getDashboardMetrics } from '../services/api';
+import { NewSaleModal } from '../components/NewSaleModal'; // <--- IMPORT NOVO
 import { 
-  TrendingUp, 
-  DollarSign, 
-  Wallet, 
-  Calendar, 
-  ArrowUpRight, 
-  CreditCard,
-  Plus
+  TrendingUp, DollarSign, Wallet, Calendar, ArrowUpRight, CreditCard, Plus
 } from 'lucide-react';
 
-// CORREÇÃO 1: Ajustamos a interface para saber que produtos/clientes são Arrays
 interface Transaction {
   id: string;
   valor_negociado: number;
   data_venda: string;
   status: string;
-  produtos: { nome: string }[] | null; // Era objeto, agora é lista de objetos
-  clientes: { nome_empresa: string }[] | null; // Era objeto, agora é lista de objetos
+  produtos: { nome: string }[] | null;
+  clientes: { nome_empresa: string }[] | null;
 }
 
 export const Dashboard = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false); // <--- ESTADO DO MODAL
   
   const [metrics, setMetrics] = useState({
     saldoTotal: 0,
@@ -32,21 +27,22 @@ export const Dashboard = () => {
     recentes: [] as Transaction[]
   });
 
-  useEffect(() => {
-    const loadData = async () => {
-      if (user?.id) {
-        try {
-          // O TypeScript agora vai aceitar os dados vindos do Supabase
-          const data = await getDashboardMetrics(user.id);
-          // Forçamos a tipagem aqui para garantir que o TS entenda a estrutura
-          setMetrics(data as any); 
-        } catch (error) {
-          console.error("Erro ao carregar dashboard:", error);
-        } finally {
-          setLoading(false);
-        }
+  // Função isolada para carregar dados (para podermos chamar ela depois de vender)
+  const loadData = async () => {
+    if (user?.id) {
+      setLoading(true); // Opcional: mostrar loading rápido ao atualizar
+      try {
+        const data = await getDashboardMetrics(user.id);
+        setMetrics(data as any);
+      } catch (error) {
+        console.error("Erro ao carregar dashboard:", error);
+      } finally {
+        setLoading(false);
       }
-    };
+    }
+  };
+
+  useEffect(() => {
     loadData();
   }, [user]);
 
@@ -64,6 +60,15 @@ export const Dashboard = () => {
   return (
     <div className="p-6 md:p-8 w-full max-w-7xl mx-auto space-y-8 pb-24">
       
+      {/* Modal de Nova Venda */}
+      <NewSaleModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSuccess={() => {
+          loadData(); // <--- Recarrega os números quando vender!
+        }} 
+      />
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">
@@ -72,20 +77,21 @@ export const Dashboard = () => {
           <p className="text-slate-500 mt-1">Aqui está seu resumo financeiro de hoje.</p>
         </div>
         
-        <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-colors shadow-lg shadow-blue-200 w-full md:w-auto justify-center">
+        {/* Botão Agora Funciona! */}
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-colors shadow-lg shadow-blue-200 w-full md:w-auto justify-center"
+        >
           <Plus size={20} />
           Nova Venda
         </button>
       </div>
 
-      {loading ? (
+      {loading && !metrics.saldoTotal ? (
         <div className="text-center py-20 text-slate-400 animate-pulse">Carregando seus números...</div>
       ) : (
         <>
-          {/* Cards Principais */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Card Saldo Total */}
             <div className="bg-blue-600 p-6 rounded-2xl shadow-lg shadow-blue-200 text-white relative overflow-hidden group">
               <div className="absolute right-0 top-0 p-3 opacity-10 transform translate-x-2 -translate-y-2 group-hover:scale-110 transition-transform">
                 <Wallet size={120} />
@@ -100,7 +106,6 @@ export const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card Vendas do Mês */}
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -122,7 +127,6 @@ export const Dashboard = () => {
               </div>
             </div>
 
-            {/* Card Comissão */}
             <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -139,7 +143,6 @@ export const Dashboard = () => {
             </div>
           </div>
 
-          {/* Lista de Transações Recentes */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-bold text-slate-800">Últimas Vendas</h2>
@@ -169,7 +172,6 @@ export const Dashboard = () => {
                               <ArrowUpRight size={18} />
                             </div>
                             <div>
-                              {/* CORREÇÃO 2: Acessamos o índice [0] pois agora é um array */}
                               <p className="font-bold text-slate-800 text-sm">
                                 {t.clientes?.[0]?.nome_empresa || 'Cliente'}
                               </p>

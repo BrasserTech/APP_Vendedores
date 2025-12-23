@@ -1,4 +1,5 @@
-import { Home, Users, Trophy, Package, Lightbulb, LogOut } from 'lucide-react';
+import { Home, Users, Trophy, Package, Lightbulb, LogOut, DollarSign } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface SidebarProps {
   activeTab: string;
@@ -6,17 +7,19 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
+  const { signOut } = useAuth();
+
   const menuItems = [
     { id: 'dashboard', icon: Home, label: 'Início' },
+    { id: 'sales', icon: DollarSign, label: 'Minhas Vendas' }, // <--- ITEM NOVO
     { id: 'clients', icon: Users, label: 'Clientes' },
     { id: 'ranking', icon: Trophy, label: 'Ranking' },
     { id: 'products', icon: Package, label: 'Produtos' },
-    { id: 'ideas', icon: Lightbulb, label: 'Ideias / Vendas' },
+    { id: 'ideas', icon: Lightbulb, label: 'Ideias' },
   ];
 
   return (
-    <aside className="w-64 bg-white h-screen border-r border-slate-200 flex-col hidden md:flex sticky top-0">
-      {/* Logo da Empresa */}
+    <aside className="w-64 bg-white h-screen border-r border-slate-200 flex flex-col sticky top-0">
       <div className="p-6 flex items-center gap-3">
         <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-blue-200">
           <span className="text-white font-bold text-xl">BT</span>
@@ -27,7 +30,6 @@ export const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
         </div>
       </div>
 
-      {/* Navegação Principal */}
       <nav className="flex-1 px-4 space-y-2 mt-4">
         {menuItems.map((item) => (
           <button
@@ -45,9 +47,11 @@ export const Sidebar = ({ activeTab, setActiveTab }: SidebarProps) => {
         ))}
       </nav>
 
-      {/* Rodapé do Menu */}
       <div className="p-4 border-t border-slate-100">
-        <button className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors font-medium">
+        <button 
+          onClick={signOut}
+          className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors font-medium"
+        >
           <LogOut size={20} />
           <span>Sair</span>
         </button>

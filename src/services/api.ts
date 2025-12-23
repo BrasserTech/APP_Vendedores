@@ -1,191 +1,189 @@
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../constants';
 
-// Inicializa a conexão com o Supabase
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ==========================================
-// 1. AUTENTICAÇÃO MANUAL (Tabela 'usuarios')
+// 1. AUTENTICAÇÃO
 // ==========================================
 
 export const loginManual = async (email: string, senha: string) => {
-  // Busca usuário onde email E senha batem
-  const { data, error } = await supabase
+  const { data: userData, error: userError } = await supabase
     .from('usuarios')
     .select('*')
     .eq('email', email)
-    .eq('senha', senha) // Em produção, usaríamos criptografia/hash
+    .eq('senha', senha)
     .single();
 
-  if (error) return null;
-  return data;
+  if (userError || !userData) return null;
+
+  // Busca dados extras do vendedor
+  const { data: vendedorData } = await supabase
+    .from('vendedores')
+    .select('status_autorizacao')
+    .eq('usuario_id', userData.id)
+    .single();
+
+  // Regra de Login:
+  // Se for Admin, entra direto.
+  // Se for Vendedor, precisa estar Aprovado (status 1).
+  if (userData.cargo !== 'Administrador') {
+    if (!vendedorData) throw new Error("Perfil de vendedor não encontrado.");
+    if (vendedorData.status_autorizacao === 2) throw new Error("Cadastro em análise. Aguarde aprovação.");
+  }
+
+  return userData;
 };
 
 export const registerManual = async (nome: string, email: string, senha: string) => {
-  const { data, error } = await supabase
-    .from('usuarios')
-    .insert([{ nome, email, senha }])
-    .select()
-    .single();
+  const { data: existingUser } = await supabase.from('usuarios').select('id').eq('email', email).single();
+  let userId = existingUser?.id;
 
+  if (!userId) {
+    const { data: newUser, error } = await supabase
+      .from('usuarios')
+      // Todo novo cadastro nasce como 'Vendedor' por segurança
+      .insert([{ nome, email, senha, cargo: 'Vendedor' }]) 
+      .select().single();
+    if (error) throw error;
+    userId = newUser.id;
+  }
+
+  const { data: existingSeller } = await supabase.from('vendedores').select('id').eq('usuario_id', userId).single();
+  if (!existingSeller) {
+    await supabase.from('vendedores').insert([{ 
+      nome, email, usuario_id: userId, status_autorizacao: 2, total_vendas: 0 
+    }]);
+  }
+
+  return { id: userId, email };
+};
+
+// ==========================================
+// 2. LEITURA DE DADOS (COM PERMISSÕES)
+// ==========================================
+
+// BUSCAR CLIENTES
+// Se cargo for Admin, vê tudo. Se não, vê só os seus.
+export const getClients = async (userId: string, userCargo: string = 'Vendedor') => {
+  let query = supabase.from('clientes').select('*, vendedores(nome)').order('created_at', { ascending: false });
+
+  if (userCargo !== 'Administrador') {
+    query = query.eq('usuario_id', userId);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return data;
 };
 
+// BUSCAR VENDAS
+// Renomeado de getMySales para getSales pois agora pode buscar de todos
+export const getSales = async (userId: string, userCargo: string = 'Vendedor') => {
+  let query = supabase
+    .from('vendas')
+    .select(`*, produtos(nome), clientes(nome_empresa), vendedores(nome)`)
+    .order('data_venda', { ascending: false });
+
+  if (userCargo !== 'Administrador') {
+    query = query.eq('usuario_id', userId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data;
+};
+
+// BUSCAR IDEIAS E NOTIFICAÇÕES
+export const getIdeas = async (userId: string, userCargo: string = 'Vendedor') => {
+  const { data, error } = await supabase
+    .from('ideias')
+    .select(`*, vendedores:usuario_id(nome)`) // JOIN para saber quem mandou
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  // Filtragem Lógica:
+  // 1. Admin vê tudo.
+  // 2. Dono vê as suas.
+  // 3. Outros vêem apenas o que NÃO é privado e NÃO é venda.
+  const filteredData = data.filter((item: any) => {
+    if (userCargo === 'Administrador') return true; 
+    if (item.usuario_id === userId) return true;
+    if (!item.privado && item.tipo !== 'Venda de Projeto') return true;
+    return false;
+  });
+
+  return filteredData;
+};
+
+// BUSCAR LISTA DE VENDEDORES (Para filtro do Admin)
+export const getSellersList = async () => {
+  const { data } = await supabase.from('vendedores').select('*').eq('status_autorizacao', 1);
+  return data || [];
+};
+
 // ==========================================
-// 2. DASHBOARD & MÉTRICAS
+// 3. OUTROS (Ranking, Dashboard, etc)
 // ==========================================
 
-export const getDashboardMetrics = async (usuarioId: string) => {
+export const getRanking = async () => {
+  const { data: vendedores } = await supabase.from('vendedores').select('id, nome, usuario_id').eq('status_autorizacao', 1);
+  if (!vendedores) return [];
+
+  const rankingCalculado = await Promise.all(vendedores.map(async (vendedor) => {
+    const { data: vendas } = await supabase.from('vendas').select('valor_negociado').eq('usuario_id', vendedor.usuario_id);
+    const totalVendas = vendas?.reduce((acc, curr) => acc + Number(curr.valor_negociado), 0) || 0;
+    return {
+      id: vendedor.id, nome: vendedor.nome, total_vendas: totalVendas, contratos_fechados: vendas?.length || 0
+    };
+  }));
+
+  return rankingCalculado.sort((a, b) => b.total_vendas - a.total_vendas);
+};
+
+export const getDashboardMetrics = async (usuarioId: string, userCargo: string = 'Vendedor') => {
   const hoje = new Date();
-  // Data do primeiro dia do mês atual (para filtro)
   const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString();
 
-  // A. Busca TODAS as vendas do usuário (para saldo total)
-  const { data: todasVendas, error: errorTotal } = await supabase
-    .from('vendas')
-    .select('valor_negociado, data_venda')
-    .eq('usuario_id', usuarioId);
+  // Reutiliza a lógica de permissão
+  const vendas = await getSales(usuarioId, userCargo); 
 
-  if (errorTotal) throw errorTotal;
-
-  // B. Busca as 5 vendas mais recentes com detalhes (Join)
-  const { data: vendasRecentes, error: errorRecentes } = await supabase
-    .from('vendas')
-    .select(`
-      id,
-      valor_negociado,
-      data_venda,
-      status,
-      produtos (nome),
-      clientes (nome_empresa)
-    `)
-    .eq('usuario_id', usuarioId)
-    .order('data_venda', { ascending: false })
-    .limit(5);
-
-  if (errorRecentes) throw errorRecentes;
-
-  // C. Cálculos Matemáticos (Frontend)
+  const saldoTotal = vendas?.reduce((acc: number, curr: any) => acc + Number(curr.valor_negociado), 0) || 0;
+  const vendasMes = vendas?.filter((v: any) => v.data_venda >= primeiroDiaMes)
+    .reduce((acc: number, curr: any) => acc + Number(curr.valor_negociado), 0) || 0;
   
-  // Soma tudo
-  const saldoTotal = todasVendas?.reduce((acc, curr) => acc + Number(curr.valor_negociado), 0) || 0;
-
-  // Soma só o que é deste mês
-  const vendasMes = todasVendas
-    ?.filter(v => v.data_venda >= primeiroDiaMes)
-    .reduce((acc, curr) => acc + Number(curr.valor_negociado), 0) || 0;
-
-  // Calcula comissão de 10%
-  const comissao = saldoTotal * 0.10;
-
-  return {
-    saldoTotal,
-    vendasMes,
-    comissao,
-    recentes: vendasRecentes || []
+  return { 
+    saldoTotal, vendasMes, comissao: saldoTotal * 0.10, recentes: vendas?.slice(0, 5) || [] 
   };
 };
 
-// ==========================================
-// 3. LEITURA DE DADOS (GET)
-// ==========================================
-
-// Buscar Clientes (Filtra pelo usuário logado se quiser, aqui traz tudo)
-export const getClients = async () => {
-  const { data, error } = await supabase
-    .from('clientes')
-    .select('*')
-    .order('created_at', { ascending: false });
-  
-  if (error) throw error;
-  return data;
-};
-
-// Buscar Catálogo de Produtos
 export const getProducts = async () => {
-  const { data, error } = await supabase
-    .from('produtos')
-    .select('*');
-
-  if (error) throw error;
+  const { data } = await supabase.from('produtos').select('*');
   return data;
 };
 
-// Buscar Ranking (Baseado na tabela antiga de vendedores por enquanto)
-export const getRanking = async () => {
-  const { data, error } = await supabase
-    .from('vendedores')
-    .select('*')
-    .order('total_vendas', { ascending: false });
+// --- ESCRITA (CREATE/UPDATE) ---
 
-  if (error) {
-    console.warn("Erro ranking ou tabela vazia:", error);
-    return [];
-  }
-  return data;
-};
-
-// Buscar Licenças/Validades próximas do vencimento
-export const getExpiringLicenses = async () => {
-  const hoje = new Date();
-  const proximaSemana = new Date();
-  proximaSemana.setDate(hoje.getDate() + 7);
-
-  const hojeStr = hoje.toISOString().split('T')[0];
-  const semanaStr = proximaSemana.toISOString().split('T')[0];
-  
-  const { data, error } = await supabase
-    .from('validades')
-    .select(`
-      id,
-      data_fim,
-      status,
-      vendas (
-        clientes (nome_empresa),
-        produtos (nome)
-      )
-    `)
-    .eq('status', 'Ativo')
-    .gte('data_fim', hojeStr)
-    .lte('data_fim', semanaStr);
-
-  if (error) throw error;
-  return data;
-};
-
-// ==========================================
-// 4. ESCRITA DE DADOS (POST/INSERT)
-// ==========================================
-
-// Criar Nova Venda
 export const createSale = async (venda: any) => {
-  const { data, error } = await supabase
-    .from('vendas')
-    .insert([venda])
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  const { numero_contrato, ...dadosVenda } = venda;
+  const { data, error } = await supabase.from('vendas').insert([dadosVenda]).select().single();
+  if (error) throw error; return data;
 };
 
-// Criar Nova Validade (Licença)
-export const createValidity = async (validade: any) => {
-  const { data, error } = await supabase
-    .from('validades')
-    .insert([validade]);
-
-  if (error) throw error;
-  return data;
+export const updateSale = async (id: string, updates: any) => {
+  const { numero_contrato, ...dadosUpdate } = updates;
+  const { data, error } = await supabase.from('vendas').update(dadosUpdate).eq('id', id).select().single();
+  if (error) throw error; return data;
 };
 
-// Enviar Ideia ou Notificação
-export const sendIdea = async (tipo: string, descricao: string, usuario_id: string) => {
-  const { data, error } = await supabase
-    .from('ideias')
-    .insert([{ tipo, descricao, usuario_id }]);
+export const updateClient = async (id: string, updates: any) => {
+  const { data, error } = await supabase.from('clientes').update(updates).eq('id', id).select().single();
+  if (error) throw error; return data;
+};
 
-  if (error) throw error;
-  return data;
+// Atualizado para aceitar objeto completo
+export const sendIdea = async (dados: any) => {
+  const { error } = await supabase.from('ideias').insert([dados]);
+  if (error) throw error; return true;
 };
