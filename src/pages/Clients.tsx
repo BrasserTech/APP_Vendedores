@@ -73,6 +73,9 @@ export const Clients = () => {
       
       setClients(clientsData || []);
       setProducts(productsData || []);
+      
+      // Debug: verifica se os produtos foram carregados
+      console.log('Produtos carregados:', productsData?.length || 0);
 
       if (userCargo === 'Administrador') {
         const sellersData = await getSellersList();
@@ -86,6 +89,22 @@ export const Clients = () => {
   };
 
   useEffect(() => { loadData(); }, [user]);
+
+  // Carrega produtos quando o modal é aberto
+  useEffect(() => {
+    if (isFormModalOpen && products.length === 0) {
+      const loadProducts = async () => {
+        try {
+          const productsData = await getProducts();
+          console.log('Produtos carregados via useEffect:', productsData?.length || 0, productsData);
+          setProducts(productsData || []);
+        } catch (error) {
+          console.error('Erro ao carregar produtos no useEffect:', error);
+        }
+      };
+      loadProducts();
+    }
+  }, [isFormModalOpen]);
 
   const filteredClients = clients.filter(client => {
     const term = searchTerm.toLowerCase();
@@ -103,12 +122,32 @@ export const Clients = () => {
     setFormData(prev => ({ ...prev, [name]: finalValue }));
   };
 
-  const openCreateModal = () => {
+  const openCreateModal = async () => {
     setIsEditing(false);
     setCurrentClientId(null);
     setFormData({ nome: '', documento: '', telefone: '', cidade: '', estado: '', endereco: '', modulo: '' });
     setTipoPessoa('PJ');
-    setIsFormModalOpen(true);
+    
+    // Sempre recarrega os produtos para garantir que estejam atualizados
+    try {
+      const productsData = await getProducts();
+      console.log('Produtos carregados ao abrir modal:', productsData?.length || 0, productsData);
+      console.log('Estrutura do primeiro produto:', productsData?.[0]);
+      
+      // Garante que os produtos sejam definidos antes de abrir o modal
+      if (productsData && productsData.length > 0) {
+        setProducts(productsData);
+        setIsFormModalOpen(true);
+      } else {
+        console.warn('Nenhum produto encontrado na tabela');
+        setProducts([]);
+        setIsFormModalOpen(true);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar produtos:', error);
+      setProducts([]);
+      setIsFormModalOpen(true);
+    }
   };
 
   const openEditModal = (client: Cliente) => {
@@ -260,7 +299,141 @@ export const Clients = () => {
           </div>
         )}
       </div>
-      {isFormModalOpen && <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl p-6 overflow-y-auto max-h-[90vh]"><div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4"><h2 className="text-xl font-bold text-slate-800">{isEditing ? 'Editar' : 'Novo'} Cliente</h2><button onClick={() => setIsFormModalOpen(false)}><X className="text-slate-400 hover:text-slate-600" /></button></div><form onSubmit={handleSave} className="space-y-4"><div className="flex bg-slate-100 p-1 rounded-xl w-fit mb-4"><button type="button" onClick={() => setTipoPessoa('PJ')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${tipoPessoa === 'PJ' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>Pessoa Jurídica</button><button type="button" onClick={() => setTipoPessoa('PF')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${tipoPessoa === 'PF' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}>Pessoa Física</button></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div className="col-span-2"><label className="text-sm font-bold text-slate-700">Nome *</label><input className="w-full p-3 border rounded-xl" name="nome" value={formData.nome} onChange={handleInputChange} required /></div><div><label className="text-sm font-bold text-slate-700">{tipoPessoa === 'PJ' ? 'CNPJ' : 'CPF'} *</label><input className="w-full p-3 border rounded-xl" name="documento" value={formData.documento} onChange={handleInputChange} required /></div><div><label className="text-sm font-bold text-slate-700">Telefone</label><input className="w-full p-3 border rounded-xl" name="telefone" value={formData.telefone} onChange={handleInputChange} /></div><div><label className="text-sm font-bold text-slate-700">Cidade</label><input className="w-full p-3 border rounded-xl" name="cidade" value={formData.cidade} onChange={handleInputChange} /></div><div><label className="text-sm font-bold text-slate-700">Estado</label><input className="w-full p-3 border rounded-xl uppercase" name="estado" value={formData.estado} onChange={handleInputChange} maxLength={2} /></div><div className="col-span-2"><label className="text-sm font-bold text-slate-700">Módulo *</label><select name="modulo" className="w-full p-3 border rounded-xl" value={formData.modulo} onChange={handleInputChange} required><option value="">Selecione...</option>{products.map(p => <option key={p.id} value={p.nome}>{p.nome}</option>)}</select></div><div className="col-span-2"><label className="text-sm font-bold text-slate-700">Endereço</label><input className="w-full p-3 border rounded-xl" name="endereco" value={formData.endereco} onChange={handleInputChange} /></div></div><button disabled={isSubmitting} className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl mt-4 flex justify-center items-center gap-2">{isSubmitting ? <Loader2 className="animate-spin"/> : <><CheckCircle size={20}/> Salvar</>}</button></form></div></div>}
+      {isFormModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl p-6 overflow-y-auto max-h-[90vh]">
+            <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+              <h2 className="text-xl font-bold text-slate-800">{isEditing ? 'Editar' : 'Novo'} Cliente</h2>
+              <button onClick={() => setIsFormModalOpen(false)}>
+                <X className="text-slate-400 hover:text-slate-600" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSave} className="space-y-4">
+              <div className="flex bg-slate-100 p-1 rounded-xl w-fit mb-4">
+                <button 
+                  type="button" 
+                  onClick={() => setTipoPessoa('PJ')} 
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${tipoPessoa === 'PJ' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}
+                >
+                  Pessoa Jurídica
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setTipoPessoa('PF')} 
+                  className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${tipoPessoa === 'PF' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}
+                >
+                  Pessoa Física
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="text-sm font-bold text-slate-700">Nome *</label>
+                  <input 
+                    className="w-full p-3 border rounded-xl" 
+                    name="nome" 
+                    value={formData.nome} 
+                    onChange={handleInputChange} 
+                    required 
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-bold text-slate-700">{tipoPessoa === 'PJ' ? 'CNPJ' : 'CPF'} *</label>
+                  <input 
+                    className="w-full p-3 border rounded-xl" 
+                    name="documento" 
+                    value={formData.documento} 
+                    onChange={handleInputChange} 
+                    required 
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-bold text-slate-700">Telefone</label>
+                  <input 
+                    className="w-full p-3 border rounded-xl" 
+                    name="telefone" 
+                    value={formData.telefone} 
+                    onChange={handleInputChange} 
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-bold text-slate-700">Cidade</label>
+                  <input 
+                    className="w-full p-3 border rounded-xl" 
+                    name="cidade" 
+                    value={formData.cidade} 
+                    onChange={handleInputChange} 
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-sm font-bold text-slate-700">Estado</label>
+                  <input 
+                    className="w-full p-3 border rounded-xl uppercase" 
+                    name="estado" 
+                    value={formData.estado} 
+                    onChange={handleInputChange} 
+                    maxLength={2} 
+                  />
+                </div>
+                
+                <div className="col-span-2">
+                  <label className="text-sm font-bold text-slate-700">Módulo *</label>
+                  <select 
+                    name="modulo" 
+                    className="w-full p-3 border rounded-xl bg-white" 
+                    value={formData.modulo} 
+                    onChange={handleInputChange} 
+                    required
+                  >
+                    <option value="">Selecione...</option>
+                    {products.length > 0 ? (
+                      products.map(p => (
+                        <option key={p.id} value={p.nome}>{p.nome}</option>
+                      ))
+                    ) : (
+                      <option value="" disabled>Carregando módulos...</option>
+                    )}
+                  </select>
+                  {products.length === 0 && (
+                    <p className="text-xs text-red-500 mt-1">Nenhum módulo disponível. Verifique se há produtos cadastrados.</p>
+                  )}
+                  {products.length > 0 && (
+                    <p className="text-xs text-green-600 mt-1">{products.length} módulo(s) disponível(is)</p>
+                  )}
+                </div>
+                
+                <div className="col-span-2">
+                  <label className="text-sm font-bold text-slate-700">Endereço</label>
+                  <input 
+                    className="w-full p-3 border rounded-xl" 
+                    name="endereco" 
+                    value={formData.endereco} 
+                    onChange={handleInputChange} 
+                  />
+                </div>
+              </div>
+              
+              <button 
+                disabled={isSubmitting} 
+                className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl mt-4 flex justify-center items-center gap-2"
+              >
+                {isSubmitting ? (
+                  <Loader2 className="animate-spin"/>
+                ) : (
+                  <>
+                    <CheckCircle size={20}/> Salvar
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
       {isInactivateModalOpen && <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-6"><div className="flex flex-col items-center text-center mb-6"><div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-4"><Archive size={32} /></div><h2 className="text-xl font-bold text-slate-800">Inativar Cliente?</h2><p className="text-slate-500 mt-2">O cliente será movido para Inativos. Informe o motivo.</p></div><label className="block text-sm font-bold text-slate-700 mb-2">Motivo</label><textarea rows={3} className="w-full p-3 bg-slate-50 border rounded-xl mb-6 focus:ring-2 focus:ring-red-100" value={inactivationReason} onChange={e => setInactivationReason(e.target.value)} placeholder="Ex: Cancelamento..."></textarea><div className="flex gap-3"><button onClick={() => setIsInactivateModalOpen(false)} className="flex-1 py-3 text-slate-600 font-bold hover:bg-slate-50 rounded-xl">Cancelar</button><button onClick={confirmInactivation} disabled={isSubmitting} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700">Confirmar</button></div></div></div>}
     </div>
   );
