@@ -1,4 +1,47 @@
-# React + TypeScript + Vite
+# APP Vendedores
+
+Aplicação React + TypeScript + Vite para gestão de vendedores.
+
+## 🐳 Docker com Nginx
+
+A aplicação está configurada para ser executada em Docker usando Nginx como servidor web na porta **4173**.
+
+### Build e Execução
+
+#### Usando Docker diretamente:
+
+```bash
+# Build da imagem
+docker build -t app-vendedores .
+
+# Executar o container
+docker run -d -p 4173:4173 --name app-vendedores app-vendedores
+```
+
+#### Usando Docker Compose:
+
+```bash
+# Build e executar
+docker-compose up -d
+
+# Ver logs
+docker-compose logs -f
+
+# Parar
+docker-compose down
+```
+
+A aplicação estará disponível em `http://localhost:4173`
+
+### Estrutura Docker
+
+- **Dockerfile**: Multi-stage build que compila a aplicação e serve com Nginx
+- **nginx.conf**: Configuração do Nginx otimizada para SPA
+- **.dockerignore**: Arquivos ignorados no build
+
+---
+
+## React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

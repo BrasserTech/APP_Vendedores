@@ -165,7 +165,7 @@ export const getSellersList = async () => {
 export const getClients = async (usuarioId: string, userCargo: string = 'Vendedor') => {
   let query = supabase
     .from('clientes')
-    .select('*, vendedores(nome)') // Traz o nome do dono
+    .select('*') // Removido join incorreto com vendedores
     .order('created_at', { ascending: false });
 
   // Se não for Admin, filtra pelo usuário
@@ -175,6 +175,25 @@ export const getClients = async (usuarioId: string, userCargo: string = 'Vendedo
     
   const { data, error } = await query;
   if (error) throw error;
+  
+  // Busca nomes dos vendedores separadamente se necessário
+  if (data && data.length > 0) {
+    const usuarioIds = [...new Set(data.map((c: any) => c.usuario_id))];
+    const { data: vendedoresData } = await supabase
+      .from('vendedores')
+      .select('usuario_id, nome')
+      .in('usuario_id', usuarioIds);
+    
+    const vendedoresMap = new Map(
+      (vendedoresData || []).map((v: any) => [v.usuario_id, { nome: v.nome }])
+    );
+    
+    return data.map((cliente: any) => ({
+      ...cliente,
+      vendedores: vendedoresMap.get(cliente.usuario_id) || null
+    }));
+  }
+  
   return data;
 };
 
@@ -190,8 +209,7 @@ export const getSales = async (usuarioId: string, userCargo: string = 'Vendedor'
     .select(`
       *,
       produtos (nome),
-      clientes (nome_empresa),
-      vendedores (nome)
+      clientes (nome_empresa)
     `)
     .order('data_venda', { ascending: false });
 
@@ -202,6 +220,25 @@ export const getSales = async (usuarioId: string, userCargo: string = 'Vendedor'
 
   const { data, error } = await query;
   if (error) throw error;
+  
+  // Busca nomes dos vendedores separadamente se necessário
+  if (data && data.length > 0) {
+    const usuarioIds = [...new Set(data.map((v: any) => v.usuario_id))];
+    const { data: vendedoresData } = await supabase
+      .from('vendedores')
+      .select('usuario_id, nome')
+      .in('usuario_id', usuarioIds);
+    
+    const vendedoresMap = new Map(
+      (vendedoresData || []).map((v: any) => [v.usuario_id, { nome: v.nome }])
+    );
+    
+    return data.map((venda: any) => ({
+      ...venda,
+      vendedores: vendedoresMap.get(venda.usuario_id) || null
+    }));
+  }
+  
   return data;
 };
 
@@ -209,7 +246,7 @@ export const getSales = async (usuarioId: string, userCargo: string = 'Vendedor'
 export const getIdeas = async (usuarioId: string, userCargo: string = 'Vendedor') => {
   const { data, error } = await supabase
     .from('ideias')
-    .select(`*, vendedores:usuario_id(nome)`)
+    .select('*')
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -229,6 +266,24 @@ export const getIdeas = async (usuarioId: string, userCargo: string = 'Vendedor'
 
     return false;
   });
+
+  // Busca nomes dos vendedores separadamente se necessário
+  if (filteredData && filteredData.length > 0) {
+    const usuarioIds = [...new Set(filteredData.map((item: any) => item.usuario_id))];
+    const { data: vendedoresData } = await supabase
+      .from('vendedores')
+      .select('usuario_id, nome')
+      .in('usuario_id', usuarioIds);
+    
+    const vendedoresMap = new Map(
+      (vendedoresData || []).map((v: any) => [v.usuario_id, { nome: v.nome }])
+    );
+    
+    return filteredData.map((item: any) => ({
+      ...item,
+      vendedores: vendedoresMap.get(item.usuario_id) || null
+    }));
+  }
 
   return filteredData;
 };
