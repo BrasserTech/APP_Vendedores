@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { X, Loader2, CheckCircle, DollarSign } from 'lucide-react';
-// CORREÇÃO: Removido 'supabase' da importação, pois não é usado aqui
 import { getClients, getProducts, createSale } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -28,11 +27,13 @@ export const NewSaleModal = ({ isOpen, onClose, onSuccess }: NewSaleModalProps) 
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && user) {
       const fetchData = async () => {
+        setLoadingData(true);
         try {
           const [clientsData, productsData] = await Promise.all([
-            getClients(),
+            // CORREÇÃO: Passando o ID e o Cargo do usuário para filtrar os clientes corretamente
+            getClients(user.id, user.cargo || 'Vendedor'),
             getProducts()
           ]);
           setClients(clientsData || []);
@@ -45,7 +46,7 @@ export const NewSaleModal = ({ isOpen, onClose, onSuccess }: NewSaleModalProps) 
       };
       fetchData();
     }
-  }, [isOpen]);
+  }, [isOpen, user]);
 
   // Ao selecionar um produto, sugere o preço automaticamente
   useEffect(() => {
@@ -74,9 +75,11 @@ export const NewSaleModal = ({ isOpen, onClose, onSuccess }: NewSaleModalProps) 
       onSuccess(); 
       onClose();   
       
+      // Limpa formulário
       setSelectedClient('');
       setSelectedProduct('');
       setValue('');
+      setPaymentMethod('PIX');
     } catch (error) {
       console.error(error);
       alert('Erro ao registrar venda.');
@@ -122,7 +125,7 @@ export const NewSaleModal = ({ isOpen, onClose, onSuccess }: NewSaleModalProps) 
                     <option key={c.id} value={c.id}>{c.nome_empresa}</option>
                   ))}
                 </select>
-                {clients.length === 0 && <p className="text-xs text-red-500 mt-1">Cadastre um cliente primeiro na aba Clientes.</p>}
+                {clients.length === 0 && <p className="text-xs text-red-500 mt-1">Nenhum cliente encontrado. Cadastre um na aba Clientes.</p>}
               </div>
 
               <div>
